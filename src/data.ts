@@ -51,21 +51,25 @@ export const MOCK_USERS: UserProfile[] = [
 
 // Predefined expense categories
 export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
-  { id: 1, label: 'Business Travel & Lodging', type: 'trip_expense' },
-  { id: 2, label: 'Telecommunication & Internet', type: 'other_expense' },
-  { id: 3, label: 'Training & Certifications', type: 'other_expense' },
-  { id: 4, label: 'Client Entertainment & Meals', type: 'other_expense' }
+  { id: 1, label: 'Demo Expense', type: 'other_expense' },
+  { id: 2, label: 'Local Expense', type: 'other_expense' },
+  { id: 3, label: 'Other', type: 'other_expense' },
+  { id: 4, label: 'Service Expense', type: 'other_expense' },
+  { id: 5, label: 'Standard Expense', type: 'other_expense' },
+  { id: 6, label: 'Trip Expense', type: 'trip_expense' }
 ];
 
 // Predefined line-item expense types
 export const EXPENSE_TYPES: ExpenseType[] = [
-  { id: 10, label: 'Flights & Transport' },
-  { id: 11, label: 'Hotel & Accommodation' },
-  { id: 12, label: 'Meals & Food' },
-  { id: 13, label: 'Internet & Telephone' },
-  { id: 14, label: 'Professional Certifications' },
-  { id: 15, label: 'Software Licenses' },
-  { id: 16, label: 'Office Supplies' }
+  { id: 10, label: 'Accommodation' },
+  { id: 11, label: 'Food' },
+  { id: 12, label: 'Fuel' },
+  { id: 13, label: 'International Travel' },
+  { id: 14, label: 'Local Travel' },
+  { id: 15, label: 'Machinery' },
+  { id: 16, label: 'Miscellaneous' },
+  { id: 17, label: 'Outstation Travel' },
+  { id: 18, label: 'Transportation' }
 ];
 
 // Preseeded data from EXPENSE_MOCK_DATA.json with matching exact schemas
@@ -75,8 +79,8 @@ const INITIAL_CLAIMS: ExpenseClaim[] = [
     "expense_number": "EXP-2026-0001",
     "title": "Q2 Client Onboarding - Bangalore Trip",
     "category": {
-      "id": 1,
-      "label": "Business Travel & Lodging",
+      "id": 6,
+      "label": "Trip Expense",
       "type": "trip_expense"
     },
     "city": "Bangalore",
@@ -101,7 +105,7 @@ const INITIAL_CLAIMS: ExpenseClaim[] = [
       {
         "id": 201,
         "item_date": "2026-06-11",
-        "expense_type": { "id": 10, "label": "Flights & Transport" },
+        "expense_type": { "id": 18, "label": "Transportation" },
         "title": "Indigo flight Delhi to Bangalore",
         "amount": 8500,
         "description": "Round trip ticket booked economy class",
@@ -125,7 +129,7 @@ const INITIAL_CLAIMS: ExpenseClaim[] = [
       {
         "id": 202,
         "item_date": "2026-06-12",
-        "expense_type": { "id": 11, "label": "Hotel & Accommodation" },
+        "expense_type": { "id": 10, "label": "Accommodation" },
         "title": "Taj Bangalore Stay - 3 Nights",
         "amount": 18000,
         "description": "Hotel accommodation including breakfast",
@@ -173,8 +177,8 @@ const INITIAL_CLAIMS: ExpenseClaim[] = [
     "expense_number": "EXP-2026-0002",
     "title": "Annual Sales Summit - Hyderabad",
     "category": {
-      "id": 1,
-      "label": "Business Travel & Lodging",
+      "id": 6,
+      "label": "Trip Expense",
       "type": "trip_expense"
     },
     "city": "Hyderabad",
@@ -199,7 +203,7 @@ const INITIAL_CLAIMS: ExpenseClaim[] = [
       {
         "id": 203,
         "item_date": "2026-05-12",
-        "expense_type": { "id": 10, "label": "Flights & Transport" },
+        "expense_type": { "id": 18, "label": "Transportation" },
         "title": "Delhi to Hyderabad Flights",
         "amount": 9200,
         "description": "Round trip ticket for annual summit",
@@ -216,7 +220,7 @@ const INITIAL_CLAIMS: ExpenseClaim[] = [
       {
         "id": 204,
         "item_date": "2026-05-13",
-        "expense_type": { "id": 12, "label": "Meals & Food" },
+        "expense_type": { "id": 11, "label": "Food" },
         "title": "Summit Dinner with Clients",
         "amount": 4200,
         "description": "Dinner at Sheraton for 3 delegates",
@@ -273,8 +277,8 @@ const INITIAL_CLAIMS: ExpenseClaim[] = [
     "expense_number": "EXP-2026-0003",
     "title": "Internet & Mobile Bill - Q2 Reimbursement",
     "category": {
-      "id": 2,
-      "label": "Telecommunication & Internet",
+      "id": 5,
+      "label": "Standard Expense",
       "type": "other_expense"
     },
     "city": "Delhi NCR",
@@ -299,7 +303,7 @@ const INITIAL_CLAIMS: ExpenseClaim[] = [
       {
         "id": 205,
         "item_date": "2026-06-01",
-        "expense_type": { "id": 13, "label": "Internet & Telephone" },
+        "expense_type": { "id": 16, "label": "Miscellaneous" },
         "title": "Airtel Broadband Bill - May 2026",
         "amount": 1200,
         "description": "Work from home internet connection charges",
@@ -316,7 +320,7 @@ const INITIAL_CLAIMS: ExpenseClaim[] = [
       {
         "id": 206,
         "item_date": "2026-06-01",
-        "expense_type": { "id": 13, "label": "Internet & Telephone" },
+        "expense_type": { "id": 16, "label": "Miscellaneous" },
         "title": "Jio mobile postpaid connection - May 2026",
         "amount": 750,
         "description": "Mobile charges for client calls",
@@ -373,8 +377,8 @@ const INITIAL_CLAIMS: ExpenseClaim[] = [
     "expense_number": "EXP-2026-0004",
     "title": "AWS Cloud Practitioner Certification",
     "category": {
-      "id": 3,
-      "label": "Training & Certifications",
+      "id": 4,
+      "label": "Service Expense",
       "type": "other_expense"
     },
     "city": "Online",
@@ -399,7 +403,7 @@ const INITIAL_CLAIMS: ExpenseClaim[] = [
       {
         "id": 207,
         "item_date": "2026-05-10",
-        "expense_type": { "id": 14, "label": "Professional Certifications" },
+        "expense_type": { "id": 16, "label": "Miscellaneous" },
         "title": "AWS Cloud Practitioner Exam Fee",
         "amount": 9500,
         "description": "AWS exam fee reimbursement as approved by HOD",
@@ -481,8 +485,8 @@ const INITIAL_CLAIMS: ExpenseClaim[] = [
     "expense_number": "EXP-2026-0005",
     "title": "Client Dinner - Marriott Delhi",
     "category": {
-      "id": 4,
-      "label": "Client Entertainment & Meals",
+      "id": 2,
+      "label": "Local Expense",
       "type": "other_expense"
     },
     "city": "New Delhi",
@@ -507,7 +511,7 @@ const INITIAL_CLAIMS: ExpenseClaim[] = [
       {
         "id": 208,
         "item_date": "2026-06-25",
-        "expense_type": { "id": 12, "label": "Meals & Food" },
+        "expense_type": { "id": 11, "label": "Food" },
         "title": "Marriott business dinner with ACME team",
         "amount": 7800,
         "description": "Hosted 4 members from ACME corp during contract discussions",
