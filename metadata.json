@@ -1,0 +1,6 @@
+{
+  "name": "Expense Claim & Approval System",
+  "description": "A high-fidelity standalone Expense Claim and Approval System featuring multi-role flows, Excel bulk upload, interactive visual dashboards, and audit logs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
