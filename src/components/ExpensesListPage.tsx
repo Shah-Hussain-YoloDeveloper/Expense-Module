@@ -97,20 +97,18 @@ export default function ExpensesListPage({
 
   // Determine claims based on User Role & Queue rules
   const userFilteredClaims = useMemo(() => {
-    if (isApprover) {
-      // Approver View: Shows all claims but allows special actions on their queue
-      // Let's sort them so that items waiting for the active user are pinned at the top!
-      return [...claims].sort((a, b) => {
-        const aWaiting = a.current_approver_role === currentUser.role;
-        const bWaiting = b.current_approver_role === currentUser.role;
-        if (aWaiting && !bWaiting) return -1;
-        if (!aWaiting && bWaiting) return 1;
-        return new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime();
-      });
-    } else {
-      // Employee View: Only show claims filed by this employee
-      return claims.filter((claim) => claim.employee.id === currentUser.id);
-    }
+    const filtered = isApprover
+      ? [...claims]
+      : claims.filter((claim) => claim.employee.id === currentUser.id);
+
+    return filtered.sort((a, b) => {
+      const timeA = new Date(a.submitted_at).getTime();
+      const timeB = new Date(b.submitted_at).getTime();
+      if (timeB !== timeA) {
+        return timeB - timeA;
+      }
+      return b.id - a.id;
+    });
   }, [claims, currentUser, isApprover]);
 
   // Apply Search, Filters & Tab filtering
