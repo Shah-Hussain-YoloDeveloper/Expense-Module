@@ -195,6 +195,47 @@ export default function ExpenseReviewPage({
 
   const finalStatusIntent = calculatedOverallStatus();
 
+  if (claim.current_approver_role !== currentUser.role) {
+    return (
+      <div className="space-y-6 pb-12">
+        <div className="flex flex-col gap-2 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onCancel}
+              className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <div>
+              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <span>Auditing</span>
+                <ChevronRight className="h-3 w-3" />
+                <span>{claim.expense_number}</span>
+              </div>
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 md:text-2xl mt-0.5">
+                Review Expense Claim
+              </h2>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-rose-50 border border-rose-150 rounded-2xl p-8 text-center max-w-lg mx-auto mt-12 shadow-xs" id="review-access-denied-gate">
+          <Shield className="h-12 w-12 text-rose-600 mx-auto stroke-[1.5] mb-4 animate-pulse" />
+          <h3 className="text-base font-bold text-slate-900">Access Denied</h3>
+          <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+            Your current role (<span className="font-bold text-slate-700">{currentUser.roleLabel}</span>) is not authorized to audit this claim. This claim is currently awaiting review at the <span className="font-bold text-indigo-650">{claim.current_approver_role ? claim.current_approver_role.replace('_', ' ').toUpperCase() : 'N/A'}</span> desk.
+          </p>
+          <button
+            onClick={onCancel}
+            className="mt-6 inline-flex items-center gap-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-white px-5 py-2.5 shadow-sm transition-all cursor-pointer"
+          >
+            Go Back to List
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-12">
       

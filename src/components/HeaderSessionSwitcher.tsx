@@ -23,20 +23,20 @@ export default function HeaderSessionSwitcher({
   const [isOpen, setIsOpen] = useState(false);
 
   // Get matching icon for role
-  const getRoleIcon = (role: string) => {
+  const getRoleIcon = (role: string, isSelected = false) => {
     switch (role) {
       case 'employee':
-        return <User className="h-4 w-4 text-slate-500" />;
+        return <User className={`h-4 w-4 ${isSelected ? 'text-white' : 'text-slate-500'}`} />;
       case 'manager':
-        return <UserCheck className="h-4 w-4 text-emerald-600" />;
+        return <UserCheck className={`h-4 w-4 ${isSelected ? 'text-white' : 'text-emerald-600'}`} />;
       case 'finance_desk':
-        return <Shield className="h-4 w-4 text-indigo-600" />;
+        return <Shield className={`h-4 w-4 ${isSelected ? 'text-white' : 'text-indigo-600'}`} />;
       case 'human_resources_desk':
-        return <HeartHandshake className="h-4 w-4 text-pink-600" />;
+        return <HeartHandshake className={`h-4 w-4 ${isSelected ? 'text-white' : 'text-pink-600'}`} />;
       case 'accounts_desk':
-        return <CreditCard className="h-4 w-4 text-amber-600" />;
+        return <CreditCard className={`h-4 w-4 ${isSelected ? 'text-white' : 'text-amber-600'}`} />;
       default:
-        return <User className="h-4 w-4 text-slate-500" />;
+        return <User className={`h-4 w-4 ${isSelected ? 'text-white' : 'text-slate-500'}`} />;
     }
   };
 
@@ -130,7 +130,7 @@ export default function HeaderSessionSwitcher({
                               <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${
                                 isSelected ? 'bg-white/20' : 'bg-slate-100 border border-slate-200'
                               }`}>
-                                {getRoleIcon(user.role)}
+                                {getRoleIcon(user.role, isSelected)}
                               </span>
                               <div>
                                 <p className={`font-bold ${isSelected ? 'text-white' : 'text-slate-900'}`}>

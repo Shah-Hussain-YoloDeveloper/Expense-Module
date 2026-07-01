@@ -54,11 +54,15 @@ export default function ExpenseDetailPage({
 
   // Checks
   const isOwner = claim.employee.id === currentUser.id;
-  const isAwaitingActiveUser = claim.current_approver_role === currentUser.role;
+  const isAwaitingActiveUser = currentUser.role !== 'employee' && claim.current_approver_role === currentUser.role;
 
-  // Determine edit/delete permissions
-  const canEdit = isOwner && ['awaiting_manager', 'pending', 'correction_required'].includes(claim.status);
-  const canDelete = isOwner && ['awaiting_manager', 'pending'].includes(claim.status);
+  // Determine edit/delete permissions based on roles and manager decisions
+  const wasManagerApproved = claim.logs?.some(log => log.actor_role === 'manager' && log.action === 'approved');
+  const isManagerApprovedByStatus = !['awaiting_manager', 'rejected_by_manager', 'correction_required'].includes(claim.status);
+  const isManagerApprovedByStatusForDelete = !['awaiting_manager', 'rejected_by_manager'].includes(claim.status);
+
+  const canEdit = isOwner && !(wasManagerApproved && claim.status !== 'correction_required') && !isManagerApprovedByStatus;
+  const canDelete = isOwner && !wasManagerApproved && !isManagerApprovedByStatusForDelete;
 
   // Formatters
   const formatINR = (val: number) => {

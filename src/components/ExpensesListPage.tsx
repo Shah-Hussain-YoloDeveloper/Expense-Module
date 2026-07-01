@@ -226,6 +226,40 @@ export default function ExpensesListPage({
     };
   }, [claims, currentUser]);
 
+  // Metrics (Approver Dashboard)
+  const approverStats = useMemo(() => {
+    if (!isApprover) return null;
+
+    // Claims currently awaiting this approver's desk action
+    const pendingClaims = claims.filter(c => c.current_approver_role === currentUser.role);
+    const pendingSum = pendingClaims.reduce((sum, c) => sum + c.items.reduce((itemSum, item) => itemSum + item.amount, 0), 0);
+
+    // Claims actioned by this approver in the past
+    const actionedClaims = claims.filter(c => c.logs.some(log => log.actor.id === currentUser.id));
+    const actionedSum = actionedClaims.reduce((sum, c) => sum + c.items.reduce((itemSum, item) => itemSum + item.amount, 0), 0);
+
+    // Approved/Settled claims actioned by this user
+    const approvedClaims = actionedClaims.filter(c => {
+      const myLog = c.logs.find(log => log.actor.id === currentUser.id);
+      return myLog && (myLog.action === 'approved' || myLog.action === 'settle');
+    });
+    const approvedSum = approvedClaims.reduce((sum, c) => sum + c.items.reduce((itemSum, item) => itemSum + item.amount, 0), 0);
+
+    // Correction claims actioned by this user
+    const correctionClaims = actionedClaims.filter(c => {
+      const myLog = c.logs.find(log => log.actor.id === currentUser.id);
+      return myLog && myLog.action === 'correction';
+    });
+    const correctionSum = correctionClaims.reduce((sum, c) => sum + c.items.reduce((itemSum, item) => itemSum + item.amount, 0), 0);
+
+    return {
+      pending: { val: pendingSum, count: pendingClaims.length },
+      actioned: { val: actionedSum, count: actionedClaims.length },
+      approved: { val: approvedSum, count: approvedClaims.length },
+      corrections: { val: correctionSum, count: correctionClaims.length }
+    };
+  }, [claims, currentUser, isApprover]);
+
   // Recharts data generation: Category spending
   const categoryChartData = useMemo(() => {
     const categoryTotals: Record<string, number> = {};
@@ -233,8 +267,11 @@ export default function ExpensesListPage({
       categoryTotals[cat.label] = 0;
     });
 
-    const personalClaims = claims.filter(c => c.employee.id === currentUser.id);
-    personalClaims.forEach(claim => {
+    const relevantClaims = isApprover
+      ? claims.filter(c => c.current_approver_role === currentUser.role)
+      : claims.filter(c => c.employee.id === currentUser.id);
+
+    relevantClaims.forEach(claim => {
       claim.items.forEach(item => {
         const catLabel = claim.category.label;
         if (categoryTotals[catLabel] !== undefined) {
@@ -249,7 +286,7 @@ export default function ExpensesListPage({
       name: label.length > 22 ? label.substring(0, 20) + '...' : label,
       amount: categoryTotals[label]
     }));
-  }, [claims, currentUser]);
+  }, [claims, currentUser, isApprover]);
 
   // Status badging utility
   const getStatusBadge = (status: string) => {
@@ -344,112 +381,182 @@ export default function ExpensesListPage({
         </div>
       </div>
 
-      {/* 2. Employee Widgets (Only visible when logged in as normal Employee) */}
-      {!isApprover && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Stats Column */}
-          <div className="lg:col-span-2 grid grid-cols-2 gap-4">
-            {/* CARD 1: Total Claims */}
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Total Requested
-                </p>
-                <p className="text-2xl font-extrabold text-slate-900 tracking-tight mt-1">
-                  {formatINR(stats.total.val)}
+      {/* 2. Dashboard Widgets & Analytics */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Stats Column */}
+        <div className="lg:col-span-2 grid grid-cols-2 gap-4">
+          {!isApprover ? (
+            <>
+              {/* CARD 1: Total Claims */}
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Total Requested
+                  </p>
+                  <p className="text-2xl font-extrabold text-slate-900 tracking-tight mt-1">
+                    {formatINR(stats.total.val)}
+                  </p>
+                </div>
+                <p className="text-xs text-slate-500 font-medium mt-3 flex items-center gap-1.5">
+                  <FileCheck2 className="h-4 w-4 text-slate-400" />
+                  {stats.total.count} total requests filed
                 </p>
               </div>
-              <p className="text-xs text-slate-500 font-medium mt-3 flex items-center gap-1.5">
-                <FileCheck2 className="h-4 w-4 text-slate-400" />
-                {stats.total.count} total requests filed
-              </p>
-            </div>
 
-            {/* CARD 2: Approved / Settled */}
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Approved & Settled
-                </p>
-                <p className="text-2xl font-extrabold text-emerald-600 tracking-tight mt-1">
-                  {formatINR(stats.approved.val)}
+              {/* CARD 2: Approved / Settled */}
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Approved & Settled
+                  </p>
+                  <p className="text-2xl font-extrabold text-emerald-600 tracking-tight mt-1">
+                    {formatINR(stats.approved.val)}
+                  </p>
+                </div>
+                <p className="text-xs text-emerald-700 font-medium mt-3 flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  {stats.approved.count} requests approved
                 </p>
               </div>
-              <p className="text-xs text-emerald-700 font-medium mt-3 flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                {stats.approved.count} requests approved
-              </p>
-            </div>
 
-            {/* CARD 3: Pending Audit */}
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Pending Review
-                </p>
-                <p className="text-2xl font-extrabold text-amber-600 tracking-tight mt-1">
-                  {formatINR(stats.pending.val)}
+              {/* CARD 3: Pending Review */}
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Pending Review
+                  </p>
+                  <p className="text-2xl font-extrabold text-amber-600 tracking-tight mt-1">
+                    {formatINR(stats.pending.val)}
+                  </p>
+                </div>
+                <p className="text-xs text-amber-700 font-medium mt-3 flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                  {stats.pending.count} awaiting desk actions
                 </p>
               </div>
-              <p className="text-xs text-amber-700 font-medium mt-3 flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-                {stats.pending.count} awaiting desk actions
-              </p>
-            </div>
 
-            {/* CARD 4: Rejected Requests */}
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Rejected Claims
-                </p>
-                <p className="text-2xl font-extrabold text-rose-600 tracking-tight mt-1">
-                  {formatINR(stats.rejected.val)}
+              {/* CARD 4: Rejected Requests */}
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Rejected Claims
+                  </p>
+                  <p className="text-2xl font-extrabold text-rose-600 tracking-tight mt-1">
+                    {formatINR(stats.rejected.val)}
+                  </p>
+                </div>
+                <p className="text-xs text-rose-700 font-medium mt-3 flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-rose-500" />
+                  {stats.rejected.count} requests rejected
                 </p>
               </div>
-              <p className="text-xs text-rose-700 font-medium mt-3 flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-rose-500" />
-                {stats.rejected.count} requests rejected
-              </p>
+            </>
+          ) : (
+            <>
+              {/* CARD 1: Pending Your Desk */}
+              <div className="bg-indigo-50/55 border border-indigo-150 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">
+                    Pending Your Desk
+                  </p>
+                  <p className="text-2xl font-extrabold text-indigo-700 tracking-tight mt-1">
+                    {formatINR(approverStats?.pending.val || 0)}
+                  </p>
+                </div>
+                <p className="text-xs text-indigo-700 font-bold mt-3 flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-indigo-500 animate-ping" />
+                  {approverStats?.pending.count || 0} claims awaiting your review
+                </p>
+              </div>
+
+              {/* CARD 2: Actioned by You */}
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Actioned by You
+                  </p>
+                  <p className="text-2xl font-extrabold text-slate-900 tracking-tight mt-1">
+                    {approverStats?.actioned.count || 0} Claims
+                  </p>
+                </div>
+                <p className="text-xs text-slate-500 font-medium mt-3 flex items-center gap-1.5">
+                  <FileCheck2 className="h-4 w-4 text-slate-400" />
+                  Value: {formatINR(approverStats?.actioned.val || 0)}
+                </p>
+              </div>
+
+              {/* CARD 3: Approved / Settled */}
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Approved / Settled
+                  </p>
+                  <p className="text-2xl font-extrabold text-emerald-600 tracking-tight mt-1">
+                    {approverStats?.approved.count || 0} Claims
+                  </p>
+                </div>
+                <p className="text-xs text-emerald-700 font-medium mt-3 flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  Value: {formatINR(approverStats?.approved.val || 0)}
+                </p>
+              </div>
+
+              {/* CARD 4: Corrections Issued */}
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Corrections Issued
+                  </p>
+                  <p className="text-2xl font-extrabold text-amber-650 tracking-tight mt-1">
+                    {approverStats?.corrections.count || 0} Claims
+                  </p>
+                </div>
+                <p className="text-xs text-amber-700 font-medium mt-3 flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  Value: {formatINR(approverStats?.corrections.val || 0)}
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Chart Column (Fulfilling the Recharts/D3 requirements) */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <FileBarChart2 className="h-4 w-4 text-indigo-500" />
+                {!isApprover ? "Category Outlay" : "Pending Category Outlay"}
+              </h3>
+              <span className="text-[10px] text-slate-500 font-medium">Auto-updated</span>
             </div>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              {!isApprover 
+                ? "Distribution of your logged expenses across various spend categories."
+                : "Spend distribution across categories of claims pending your approval."}
+            </p>
           </div>
 
-          {/* Chart Column (Fulfilling the Recharts/D3 requirements) */}
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <FileBarChart2 className="h-4 w-4 text-indigo-500" />
-                  Category Outlay
-                </h3>
-                <span className="text-[10px] text-slate-500 font-medium">Auto-updated</span>
-              </div>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Distribution of your logged expenses across various spend categories.
-              </p>
-            </div>
-
-            <div className="h-40 w-full mt-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={categoryChartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 9, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                  <Tooltip 
-                    formatter={(value) => [`₹${value}`, 'Amount']} 
-                    contentStyle={{ borderRadius: '12px', fontSize: '11px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05)' }} 
-                  />
-                  <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
-                    {categoryChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={index === 0 ? '#1e293b' : index === 1 ? '#4f46e5' : index === 2 ? '#ec4899' : '#f59e0b'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+          <div className="h-40 w-full mt-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={categoryChartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 9, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                <Tooltip 
+                  formatter={(value) => [`₹${value}`, 'Amount']} 
+                  contentStyle={{ borderRadius: '12px', fontSize: '11px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05)' }} 
+                />
+                <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
+                  {categoryChartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={index === 0 ? '#1e293b' : index === 1 ? '#4f46e5' : index === 2 ? '#ec4899' : '#f59e0b'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
-      )}
+      </div>
 
       {/* 3. Approver Information Widget (Only visible when logged in as desk approvers) */}
       {isApprover && (
@@ -697,7 +804,7 @@ export default function ExpensesListPage({
                   const totalClaimAmount = claim.items.reduce((sum, i) => sum + i.amount, 0);
                   
                   // Interactive review triggers
-                  const isAwaitingActiveUser = claim.current_approver_role === currentUser.role;
+                  const isAwaitingActiveUser = currentUser.role !== 'employee' && claim.current_approver_role === currentUser.role;
 
                   return (
                     <tr
@@ -789,44 +896,58 @@ export default function ExpensesListPage({
                                     className="absolute right-0 mt-1 z-50 w-36 origin-top-right rounded-xl border border-slate-200 bg-white p-1 shadow-lg"
                                   >
                                     {/* Edit check */}
-                                    {['awaiting_manager', 'pending', 'correction_required'].includes(claim.status) ? (
-                                      <button
-                                        onClick={() => {
-                                          onEditClaim(claim.id);
-                                          setActiveMenuId(null);
-                                        }}
-                                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
-                                      >
-                                        <Pencil className="h-3.5 w-3.5 text-slate-500" />
-                                        Edit Request
-                                      </button>
-                                    ) : (
-                                      <span className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-350 cursor-not-allowed">
-                                        <Pencil className="h-3.5 w-3.5 text-slate-300" />
-                                        Locked
-                                      </span>
-                                    )}
+                                    {(() => {
+                                      const isOwner = claim.employee.id === currentUser.id;
+                                      const wasManagerApproved = claim.logs?.some(log => log.actor_role === 'manager' && log.action === 'approved');
+                                      const isManagerApprovedByStatus = !['awaiting_manager', 'rejected_by_manager', 'correction_required'].includes(claim.status);
+                                      const canEdit = isOwner && !(wasManagerApproved && claim.status !== 'correction_required') && !isManagerApprovedByStatus;
+                                      
+                                      return canEdit ? (
+                                        <button
+                                          onClick={() => {
+                                            onEditClaim(claim.id);
+                                            setActiveMenuId(null);
+                                          }}
+                                          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                                        >
+                                          <Pencil className="h-3.5 w-3.5 text-slate-500" />
+                                          Edit Request
+                                        </button>
+                                      ) : (
+                                        <span className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-350 cursor-not-allowed" title="This claim is locked and cannot be edited.">
+                                          <Pencil className="h-3.5 w-3.5 text-slate-300" />
+                                          Locked
+                                        </span>
+                                      );
+                                    })()}
 
                                     {/* Delete check */}
-                                    {['awaiting_manager', 'pending'].includes(claim.status) ? (
-                                      <button
-                                        onClick={() => {
-                                          if (confirm('Are you sure you want to delete this claim? This action cannot be undone.')) {
-                                            onDeleteClaim(claim.id);
-                                          }
-                                          setActiveMenuId(null);
-                                        }}
-                                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5 text-rose-500" />
-                                        Delete Request
-                                      </button>
-                                    ) : (
-                                      <span className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-350 cursor-not-allowed">
-                                        <Trash2 className="h-3.5 w-3.5 text-slate-300" />
-                                        Cannot Delete
-                                      </span>
-                                    )}
+                                    {(() => {
+                                      const isOwner = claim.employee.id === currentUser.id;
+                                      const wasManagerApproved = claim.logs?.some(log => log.actor_role === 'manager' && log.action === 'approved');
+                                      const isManagerApprovedByStatusForDelete = !['awaiting_manager', 'rejected_by_manager'].includes(claim.status);
+                                      const canDelete = isOwner && !wasManagerApproved && !isManagerApprovedByStatusForDelete;
+
+                                      return canDelete ? (
+                                        <button
+                                          onClick={() => {
+                                            if (confirm('Are you sure you want to delete this claim? This action cannot be undone.')) {
+                                              onDeleteClaim(claim.id);
+                                            }
+                                            setActiveMenuId(null);
+                                          }}
+                                          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5 text-rose-500" />
+                                          Delete Request
+                                        </button>
+                                      ) : (
+                                        <span className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-slate-350 cursor-not-allowed" title="Claims cannot be deleted once approved by a manager.">
+                                          <Trash2 className="h-3.5 w-3.5 text-slate-300" />
+                                          Cannot Delete
+                                        </span>
+                                      );
+                                    })()}
                                   </motion.div>
                                 </>
                               )}

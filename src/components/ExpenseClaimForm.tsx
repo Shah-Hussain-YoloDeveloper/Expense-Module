@@ -20,7 +20,8 @@ import {
   Paperclip,
   X,
   FileCheck2,
-  Info
+  Info,
+  Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
@@ -40,6 +41,53 @@ export default function ExpenseClaimForm({
 }: ExpenseClaimFormProps) {
   const isEditMode = !!claimToEdit;
 
+  // Guard edit mode permissions
+  const isOwner = !isEditMode || (claimToEdit && claimToEdit.employee.id === currentUser.id);
+  const wasManagerApproved = isEditMode && claimToEdit && claimToEdit.logs?.some(log => log.actor_role === 'manager' && log.action === 'approved');
+  const isManagerApprovedByStatus = isEditMode && claimToEdit && !['awaiting_manager', 'rejected_by_manager', 'correction_required'].includes(claimToEdit.status);
+
+  if (isEditMode && claimToEdit) {
+    if (!isOwner) {
+      return (
+        <div className="space-y-6 pb-12">
+          <div className="bg-rose-50 border border-rose-150 rounded-2xl p-6 text-center max-w-lg mx-auto mt-12 shadow-xs">
+            <Shield className="h-12 w-12 text-rose-600 mx-auto stroke-[1.5] mb-4 animate-pulse" />
+            <h3 className="text-base font-bold text-slate-900">Access Denied</h3>
+            <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+              You are not authorized to edit this claim because you do not own it.
+            </p>
+            <button
+              onClick={onCancel}
+              className="mt-6 inline-flex items-center gap-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-white px-5 py-2.5 shadow-sm transition-all cursor-pointer"
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if ((wasManagerApproved && claimToEdit.status !== 'correction_required') || isManagerApprovedByStatus) {
+      return (
+        <div className="space-y-6 pb-12">
+          <div className="bg-rose-50 border border-rose-150 rounded-2xl p-6 text-center max-w-lg mx-auto mt-12 shadow-xs">
+            <Shield className="h-12 w-12 text-rose-600 mx-auto stroke-[1.5] mb-4" />
+            <h3 className="text-base font-bold text-slate-900">Claim Locked</h3>
+            <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+              This claim has already been approved by a manager and is locked for editing.
+            </p>
+            <button
+              onClick={onCancel}
+              className="mt-6 inline-flex items-center gap-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-white px-5 py-2.5 shadow-sm transition-all cursor-pointer"
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+      );
+    }
+  }
+
   // Header/Meta metadata state
   const [title, setTitle] = useState(claimToEdit?.title || '');
   const [categoryId, setCategoryId] = useState<string>(claimToEdit?.category.id.toString() || '1');
@@ -54,6 +102,11 @@ export default function ExpenseClaimForm({
   // Validation feedback
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [reportingManagerName, setReportingManagerName] = useState<string>('');
+
+  // Bulk import UI feedback states
+  const [isDragging, setIsDragging] = useState(false);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   // File drop state reference
   const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
@@ -193,10 +246,17 @@ export default function ExpenseClaimForm({
     XLSX.writeFile(wb, "Yolocorp_Expense_Upload_Template.xlsx");
   };
 
-  // Bulk Excel Import Parsing
-  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Bulk Excel Import Parsing helper
+  const processSpreadsheetFile = (file: File) => {
+    setImportSuccess(null);
+    setImportError(null);
+
+    // Validate file extension
+    const nameLower = file.name.toLowerCase();
+    if (!nameLower.endsWith('.xlsx') && !nameLower.endsWith('.xls') && !nameLower.endsWith('.csv')) {
+      setImportError("Invalid file format. Please upload an Excel (.xlsx, .xls) or CSV (.csv) file.");
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -207,15 +267,28 @@ export default function ExpenseClaimForm({
         const rows = XLSX.utils.sheet_to_json(firstSheet) as any[];
 
         if (rows.length === 0) {
-          alert("The uploaded Excel file has no rows.");
+          setImportError("The uploaded file contains no data rows.");
           return;
         }
 
+        const getRowValue = (row: any, keyName: string) => {
+          const normalizedKey = keyName.toLowerCase().replace(/[\s_-]+/g, '');
+          for (const k of Object.keys(row)) {
+            const kNormalized = k.toLowerCase().replace(/[\s_-]+/g, '');
+            if (kNormalized === normalizedKey) {
+              return row[k];
+            }
+          }
+          return undefined;
+        };
+
         const importedLines: ExpenseItem[] = rows.map((row, idx) => {
-          const typeStr = (row["expense type"] || row["Expense Type"] || "Office Supplies").toString().trim();
+          const typeVal = getRowValue(row, "expense type") || getRowValue(row, "type");
+          const typeStr = (typeVal !== undefined ? typeVal : "Office Supplies").toString().trim();
           const matchedType = EXPENSE_TYPES.find(t => t.label.toLowerCase() === typeStr.toLowerCase()) || EXPENSE_TYPES[EXPENSE_TYPES.length - 1];
 
-          let dateStr = (row["item date"] || row["Item Date"] || "2026-07-01").toString().trim();
+          let dateVal = getRowValue(row, "item date") || getRowValue(row, "date");
+          let dateStr = (dateVal !== undefined ? dateVal : "2026-07-01").toString().trim();
           // Convert Excel internal serial numbers if needed
           if (/^\d+(\.\d+)?$/.test(dateStr)) {
             const numDate = parseFloat(dateStr);
@@ -223,15 +296,19 @@ export default function ExpenseClaimForm({
             dateStr = dateObj.toISOString().split('T')[0];
           }
 
-          const rawAmt = parseInt(row["amount"] || row["Amount"] || "0", 10);
+          const amtVal = getRowValue(row, "amount") || getRowValue(row, "value") || getRowValue(row, "cost");
+          const rawAmt = parseInt(amtVal !== undefined ? amtVal : "0", 10);
+
+          const titleVal = getRowValue(row, "title") || getRowValue(row, "purpose") || getRowValue(row, "item") || getRowValue(row, "name");
+          const descVal = getRowValue(row, "description") || getRowValue(row, "remarks") || getRowValue(row, "details");
 
           return {
             id: Date.now() + Math.random() + idx,
             item_date: dateStr,
             expense_type: matchedType,
-            title: (row["title"] || row["Title"] || "Excel Imported Line").toString(),
+            title: (titleVal !== undefined ? titleVal : "Imported Line").toString(),
             amount: isNaN(rawAmt) ? 0 : rawAmt,
-            description: (row["description"] || row["Description"] || "").toString(),
+            description: (descVal !== undefined ? descVal : "").toString(),
             attachments: [],
             desk_manager_status: null,
             desk_manager_remarks: null,
@@ -254,13 +331,41 @@ export default function ExpenseClaimForm({
           } else {
             setLines(prev => [...prev, ...validImported]);
           }
+          setImportSuccess(`Successfully parsed ${validImported.length} line items from "${file.name}".`);
+        } else {
+          setImportError("No valid rows containing a title or amount were found.");
         }
       } catch (err) {
-        alert("Could not process spreadsheet. Please use the layout provided in the download template.");
+        setImportError("Could not process spreadsheet. Please ensure headers match: 'expense type', 'item date', 'title', 'amount', 'description'.");
       }
     };
     reader.readAsArrayBuffer(file);
+  };
+
+  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processSpreadsheetFile(file);
+    }
     e.target.value = ''; // Reset input
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processSpreadsheetFile(file);
+    }
   };
 
   // Core Form Submit Validator
@@ -549,7 +654,7 @@ export default function ExpenseClaimForm({
               <span>Import Sheet</span>
               <input
                 type="file"
-                accept=".xlsx, .xls"
+                accept=".xlsx, .xls, .csv"
                 onChange={handleImportExcel}
                 className="hidden"
                 id="import-excel-file-selector"
@@ -557,6 +662,99 @@ export default function ExpenseClaimForm({
             </label>
           </div>
         </div>
+
+        {/* Drag and Drop Bulk Import Area */}
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition-all duration-200 ${
+            isDragging
+              ? 'border-indigo-600 bg-indigo-50/40 scale-[1.01]'
+              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/30'
+          }`}
+          id="bulk-spreadsheet-import-dropzone"
+        >
+          <input
+            type="file"
+            accept=".xlsx, .xls, .csv"
+            onChange={handleImportExcel}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+            title=""
+            id="drag-drop-file-input"
+          />
+          <div className="flex flex-col items-center justify-center space-y-3">
+            <div className={`p-3 rounded-full transition-colors ${isDragging ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'}`}>
+              <Upload className="h-6 w-6 stroke-[2]" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-800">
+                Drag and drop your expense sheet here
+              </p>
+              <p className="text-xs text-slate-400 mt-1">
+                Supports Excel (.xlsx, .xls) and CSV (.csv) files.
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">or</span>
+              <span className="text-xs font-bold text-indigo-600 hover:text-indigo-700 underline transition-colors cursor-pointer">
+                Browse Files
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Bulk Import Feedback */}
+        <AnimatePresence>
+          {importSuccess && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="bg-emerald-50 border border-emerald-250 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-emerald-800" id="import-success-alert">
+                <CheckCircle2 className="h-4.5 w-4.5 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-bold">File Parsed Successfully!</p>
+                  <p className="text-emerald-700 mt-0.5">{importSuccess}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setImportSuccess(null)}
+                  className="text-emerald-500 hover:text-emerald-700 font-bold text-[10px] uppercase tracking-wider cursor-pointer"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {importError && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="bg-rose-50 border border-rose-250 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-rose-800" id="import-error-alert">
+                <AlertTriangle className="h-4.5 w-4.5 text-rose-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-bold">Import Failed</p>
+                  <p className="text-rose-700 mt-0.5">{importError}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setImportError(null)}
+                  className="text-rose-500 hover:text-rose-700 font-bold text-[10px] uppercase tracking-wider cursor-pointer"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Lines loop */}
         <div className="space-y-4">
@@ -580,7 +778,7 @@ export default function ExpenseClaimForm({
                 {/* Visual labels */}
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
                   <div className="flex items-center gap-2">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white shadow-xs">
                       {index + 1}
                     </span>
                     <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
@@ -787,7 +985,7 @@ export default function ExpenseClaimForm({
         </button>
         <button
           type="submit"
-          className="rounded-xl bg-slate-900 hover:bg-slate-800 px-6 py-2.5 text-xs font-semibold text-white transition-all shadow-md active:scale-95 cursor-pointer"
+          className="rounded-xl bg-indigo-600 hover:bg-indigo-700 px-6 py-2.5 text-xs font-bold text-white transition-all shadow-md shadow-indigo-100 active:scale-95 cursor-pointer"
           id="submit-form-btn"
         >
           Submit Claim File

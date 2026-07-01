@@ -79,6 +79,25 @@ export default function App() {
   };
 
   const handleDeleteClaim = (id: number) => {
+    const claim = claims.find(c => c.id === id);
+    if (!claim) {
+      triggerToast("Error: Claim not found.");
+      return;
+    }
+
+    const isOwner = claim.employee.id === currentUser.id;
+    if (!isOwner) {
+      triggerToast("Access Denied: You can only delete your own claims.");
+      return;
+    }
+
+    const wasManagerApproved = claim.logs?.some(log => log.actor_role === 'manager' && log.action === 'approved');
+    const isManagerApprovedByStatusForDelete = !['awaiting_manager', 'rejected_by_manager'].includes(claim.status);
+    if (wasManagerApproved || isManagerApprovedByStatusForDelete) {
+      triggerToast("Action Denied: You cannot delete a claim once a manager has approved it.");
+      return;
+    }
+
     const updated = claims.filter(c => c.id !== id);
     saveClaims(updated);
     setClaims(updated);
@@ -142,6 +161,22 @@ export default function App() {
 
     } else if (page === 'edit' && selectedClaimId) {
       // 2. EDIT MODE (For adjustments or corrections)
+      const existingClaim = claims.find(c => c.id === selectedClaimId);
+      if (!existingClaim) return;
+
+      const isOwner = existingClaim.employee.id === currentUser.id;
+      if (!isOwner) {
+        triggerToast("Access Denied: You can only edit your own claims.");
+        return;
+      }
+
+      const wasManagerApproved = existingClaim.logs?.some(log => log.actor_role === 'manager' && log.action === 'approved');
+      const isManagerApprovedByStatus = !['awaiting_manager', 'rejected_by_manager', 'correction_required'].includes(existingClaim.status);
+      if ((wasManagerApproved && existingClaim.status !== 'correction_required') || isManagerApprovedByStatus) {
+        triggerToast("Action Denied: You cannot edit a claim once it has been approved.");
+        return;
+      }
+
       updatedClaims = claims.map(c => {
         if (c.id === selectedClaimId) {
           // Check if previous status was Correction Required
@@ -217,6 +252,14 @@ export default function App() {
     lineDecisions: Array<{ id: number; status: string; remarks: string }>;
   }) => {
     if (!selectedClaimId) return;
+    const claim = claims.find(c => c.id === selectedClaimId);
+    if (!claim) return;
+
+    if (claim.current_approver_role !== currentUser.role) {
+      triggerToast("Access Denied: You do not have the required role to review this claim.");
+      return;
+    }
+
     const timestamp = new Date().toISOString();
 
     const updatedClaims = claims.map(c => {
