@@ -17,7 +17,12 @@ import {
   XCircle,
   RefreshCw,
   Info,
-  Layers
+  Layers,
+  Calendar,
+  DollarSign,
+  Paperclip,
+  Tag,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -48,6 +53,9 @@ export default function ExpenseReviewPage({
   const [overallRemarks, setOverallRemarks] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [modalError, setModalError] = useState('');
+
+  // Selected item to view details in modal
+  const [selectedItemForDetails, setSelectedItemForDetails] = useState<ExpenseItem | null>(null);
 
   // Setup initial default decisions for each line based on current role
   useEffect(() => {
@@ -331,17 +339,17 @@ export default function ExpenseReviewPage({
       </div>
 
       {/* 4. Action-Oriented Lines Grid */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xs">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse table-auto">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/70 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                <th className="px-5 py-3.5">Line Description</th>
-                <th className="px-5 py-3.5 text-right">Amount</th>
-                <th className="px-5 py-3.5">Manager Desk</th>
-                <th className="px-5 py-3.5">Finance Audit</th>
-                <th className="px-5 py-3.5">HR Desk</th>
-                <th className="px-5 py-3.5 sticky right-0 bg-slate-50/70 shadow-l">Audit Decisions</th>
+              <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-450 uppercase tracking-wider">
+                <th className="px-5 py-3.5 min-w-[200px]">Line Description</th>
+                <th className="px-5 py-3.5 text-right w-[110px]">Amount</th>
+                <th className="px-5 py-3.5 text-center w-[120px]">Manager Desk</th>
+                <th className="px-5 py-3.5 text-center w-[120px]">Finance Audit</th>
+                <th className="px-5 py-3.5 text-center w-[120px]">HR Desk</th>
+                <th className="px-5 py-3.5 sticky right-0 bg-slate-100 border-l border-slate-200 z-10 w-[180px] min-w-[180px]">Audit Decisions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-150">
@@ -352,59 +360,67 @@ export default function ExpenseReviewPage({
                 const activeDecision = lineDecisions[item.id] || { status: 'approved', remarks: '' };
 
                 return (
-                  <tr key={item.id} className="hover:bg-slate-50/30 transition-colors">
+                  <tr key={item.id} className="hover:bg-slate-50/40 transition-colors">
                     {/* Description Details */}
-                    <td className="px-5 py-4 max-w-sm">
+                    <td className="px-5 py-4 max-w-xs sm:max-w-sm">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
-                          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-slate-100 text-[9px] font-semibold text-slate-600">
+                          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-indigo-50 border border-indigo-100 text-[9px] font-bold text-indigo-600">
                             {idx + 1}
                           </span>
-                          <span className="text-xs font-bold text-slate-900">{item.title}</span>
+                          <span className="text-xs font-bold text-slate-900 leading-tight">{item.title}</span>
                         </div>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
                           {item.expense_type.label} • {formatDate(item.item_date)}
                         </span>
-                        {item.description && (
-                          <p className="text-xs text-slate-500 italic mt-1 leading-relaxed bg-slate-50 px-2 py-1 rounded">
-                            &quot;{item.description}&quot;
-                          </p>
-                        )}
+                        
+                        <div className="flex items-center justify-between gap-2 mt-1.5 pt-1.5 border-t border-slate-100">
+                          <span className="text-[11px] text-slate-500 italic truncate max-w-[160px] block" title={item.description}>
+                            {item.description ? `"${item.description}"` : "No description"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedItemForDetails(item)}
+                            className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline shrink-0 flex items-center gap-1 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md transition-colors"
+                          >
+                            <Info className="h-3 w-3" /> Show all
+                          </button>
+                        </div>
                       </div>
                     </td>
 
                     {/* Amount */}
-                    <td className="px-5 py-4 text-right font-bold text-xs text-slate-900 whitespace-nowrap">
+                    <td className="px-5 py-4 text-right font-bold text-xs text-slate-900 whitespace-nowrap w-[110px]">
                       {formatINR(item.amount)}
                     </td>
 
                     {/* Manager Status */}
-                    <td className="px-5 py-4 whitespace-nowrap">
+                    <td className="px-5 py-4 text-center whitespace-nowrap w-[120px]">
                       {getReviewStatusBadge(item.desk_manager_status)}
                     </td>
 
                     {/* Finance Status */}
-                    <td className="px-5 py-4 whitespace-nowrap">
+                    <td className="px-5 py-4 text-center whitespace-nowrap w-[120px]">
                       {getReviewStatusBadge(item.desk_finance_status)}
                     </td>
 
                     {/* HR Status */}
-                    <td className="px-5 py-4 whitespace-nowrap">
+                    <td className="px-5 py-4 text-center whitespace-nowrap w-[120px]">
                       {getReviewStatusBadge(item.desk_hr_status)}
                     </td>
 
-                    {/* Interactive Selection (STicky Right) */}
-                    <td className="px-5 py-4 sticky right-0 bg-white shadow-l whitespace-nowrap min-w-[200px]" onClick={(e) => e.stopPropagation()}>
+                    {/* Interactive Selection (Sticky Right with Opaque Background) */}
+                    <td className="px-5 py-4 sticky right-0 bg-white border-l border-slate-200 z-10 w-[180px] min-w-[180px]" onClick={(e) => e.stopPropagation()}>
                       {isPreRejected ? (
-                        <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
-                          <XCircle className="h-4 w-4" /> Locked Rejected
+                        <div className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5 justify-center w-full">
+                          <XCircle className="h-4 w-4 shrink-0" /> Locked Rejected
                         </div>
                       ) : (
-                        <div className="space-y-2">
+                        <div className="w-full">
                           <select
                             value={activeDecision.status}
                             onChange={(e) => handleLineStatusChange(item.id, e.target.value)}
-                            className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-slate-500"
+                            className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all cursor-pointer"
                           >
                             {currentUser.role === 'manager' && (
                               <>
@@ -429,15 +445,6 @@ export default function ExpenseReviewPage({
                               </>
                             )}
                           </select>
-
-                          {/* Individual line remarks input */}
-                          <input
-                            type="text"
-                            placeholder="Add audit comments..."
-                            value={activeDecision.remarks}
-                            onChange={(e) => handleLineRemarksChange(item.id, e.target.value)}
-                            className="w-full rounded-lg border border-slate-150 px-2 py-1 text-[11px] text-slate-700 focus:outline-none focus:border-slate-400 placeholder-slate-400"
-                          />
                         </div>
                       )}
                     </td>
@@ -571,6 +578,160 @@ export default function ExpenseReviewPage({
                   id="modal-submit-decision-btn"
                 >
                   Publish Audit
+                </button>
+              </div>
+
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 7. Line Item Details Modal Dialog */}
+      <AnimatePresence>
+        {selectedItemForDetails && (
+          <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedItemForDetails(null)}
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              className="relative z-50 w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl p-6 space-y-5"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 border border-indigo-100">
+                    <FileText className="text-indigo-600 h-5 w-5" />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      Line Item Details
+                    </h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Comprehensive audit and background view</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedItemForDetails(null)}
+                  className="rounded-lg border border-slate-250 hover:bg-slate-50 p-1.5 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                >
+                  <XCircle className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Main Content Info */}
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+                {/* Row 1: Title and Category */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Item Title</span>
+                    <p className="text-xs font-bold text-slate-800">{selectedItemForDetails.title}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Expense Category</span>
+                    <span className="inline-flex items-center gap-1.5 rounded-md bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 border border-indigo-100">
+                      <Tag className="h-3.5 w-3.5" />
+                      {selectedItemForDetails.expense_type.label}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Row 2: Date and Amount */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Spent Date</span>
+                    <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 mt-0.5">
+                      <Calendar className="h-4 w-4 text-slate-400" />
+                      {formatDate(selectedItemForDetails.item_date)}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Line Amount</span>
+                    <p className="text-xs font-extrabold text-indigo-600 flex items-center gap-0.5">
+                      <DollarSign className="h-4 w-4 text-indigo-500" />
+                      {formatINR(selectedItemForDetails.amount)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Row 3: Description */}
+                <div className="space-y-1 bg-slate-50 border border-slate-150 rounded-xl p-3.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Full Description</span>
+                  <p className="text-xs text-slate-700 font-medium whitespace-pre-wrap leading-relaxed">
+                    {selectedItemForDetails.description || "No full description provided for this line item."}
+                  </p>
+                </div>
+
+                {/* Row 4: Attachments */}
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Attachments ({selectedItemForDetails.attachments?.length || 0})</span>
+                  {selectedItemForDetails.attachments && selectedItemForDetails.attachments.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-2">
+                      {selectedItemForDetails.attachments.map((att, attIdx) => (
+                        <a
+                          key={attIdx}
+                          href={att.url}
+                          target="_blank"
+                          rel="noreferrer referrer"
+                          className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:border-indigo-500 hover:text-indigo-600 hover:shadow-2xs transition-all animate-fade-in"
+                        >
+                          <Paperclip className="h-4 w-4 text-slate-400" />
+                          <span className="truncate max-w-[200px]">{att.name}</span>
+                          <span className="text-[10px] text-slate-400 shrink-0 ml-auto">({(att.size / 1024).toFixed(1)} KB)</span>
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-slate-400 italic">No attachments uploaded for this line item.</p>
+                  )}
+                </div>
+
+                {/* Row 5: Approval Status by Desks */}
+                <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                  <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200">
+                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Multi-Desk Audit History</h4>
+                  </div>
+                  <div className="p-3.5 space-y-3 divide-y divide-slate-100">
+                    <div className="flex justify-between items-start pt-2 first:pt-0">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Manager Desk</span>
+                        <p className="text-xs text-slate-500 italic mt-0.5">{selectedItemForDetails.desk_manager_remarks || "No comments log"}</p>
+                      </div>
+                      <div>{getReviewStatusBadge(selectedItemForDetails.desk_manager_status)}</div>
+                    </div>
+                    <div className="flex justify-between items-start pt-3">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Finance Audit</span>
+                        <p className="text-xs text-slate-500 italic mt-0.5">{selectedItemForDetails.desk_finance_remarks || "No comments log"}</p>
+                      </div>
+                      <div>{getReviewStatusBadge(selectedItemForDetails.desk_finance_status)}</div>
+                    </div>
+                    <div className="flex justify-between items-start pt-3">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">HR Desk</span>
+                        <p className="text-xs text-slate-500 italic mt-0.5">{selectedItemForDetails.desk_hr_remarks || "No comments log"}</p>
+                      </div>
+                      <div>{getReviewStatusBadge(selectedItemForDetails.desk_hr_status)}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal actions */}
+              <div className="flex items-center justify-end pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setSelectedItemForDetails(null)}
+                  className="rounded-xl bg-slate-900 hover:bg-slate-800 text-white px-5 py-2 text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer"
+                >
+                  Close Details
                 </button>
               </div>
 
