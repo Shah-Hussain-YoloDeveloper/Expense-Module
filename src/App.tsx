@@ -19,11 +19,48 @@ import { Sparkles, CheckCircle, Info } from 'lucide-react';
 export default function App() {
   // Session states
   const [currentUser, setSessionUser] = useState<UserProfile>(getCurrentUser());
-  const [claims, setClaims] = useState<ExpenseClaim[]>([]);
+  const [claims, setClaims] = useState<ExpenseClaim[]>(() => getClaims());
   
   // Navigation states
   const [page, setPage] = useState<'list' | 'detail' | 'create' | 'edit' | 'review' | 'policy'>('list');
   const [selectedClaimId, setSelectedClaimId] = useState<number | null>(null);
+
+  // Sync state with URL hash
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash || '#list';
+      if (hash.startsWith('#policy')) {
+        setPage('policy');
+        setSelectedClaimId(null);
+      } else if (hash.startsWith('#create')) {
+        setPage('create');
+        setSelectedClaimId(null);
+      } else if (hash.startsWith('#detail/')) {
+        const id = parseInt(hash.split('/')[1]);
+        setPage('detail');
+        setSelectedClaimId(isNaN(id) ? null : id);
+      } else if (hash.startsWith('#edit/')) {
+        const id = parseInt(hash.split('/')[1]);
+        setPage('edit');
+        setSelectedClaimId(isNaN(id) ? null : id);
+      } else if (hash.startsWith('#review/')) {
+        const id = parseInt(hash.split('/')[1]);
+        setPage('review');
+        setSelectedClaimId(isNaN(id) ? null : id);
+      } else {
+        setPage('list');
+        setSelectedClaimId(null);
+      }
+    };
+
+    // Initialize on mount
+    handleHashChange();
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, []);
 
   // Policy modal overlay state
   const [isPolicyOpen, setIsPolicyOpen] = useState(false);
@@ -31,12 +68,12 @@ export default function App() {
   // Success toast/alert feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Load claims on mount
+  // Load claims on mount - update in case localStorage had external changes
   useEffect(() => {
     setClaims(getClaims());
   }, []);
 
-  // Set page hash for lightweight clean browser routing fallback
+  // Scroll to top when page/id changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [page, selectedClaimId]);
@@ -45,8 +82,7 @@ export default function App() {
   const handleUserChange = (user: UserProfile) => {
     setCurrentUser(user);
     setSessionUser(user);
-    setPage('list');
-    setSelectedClaimId(null);
+    window.location.hash = '#list';
     triggerToast(`Switched workspace session to: ${user.name}`);
   };
 
@@ -58,25 +94,21 @@ export default function App() {
     }, 4500);
   };
 
-  // Nav actions
+  // Nav actions - modifying hash is the single source of truth
   const handleSelectClaim = (id: number) => {
-    setSelectedClaimId(id);
-    setPage('detail');
+    window.location.hash = `#detail/${id}`;
   };
 
   const handleEditClaim = (id: number) => {
-    setSelectedClaimId(id);
-    setPage('edit');
+    window.location.hash = `#edit/${id}`;
   };
 
   const handleReviewClaim = (id: number) => {
-    setSelectedClaimId(id);
-    setPage('review');
+    window.location.hash = `#review/${id}`;
   };
 
   const handleNewClaim = () => {
-    setSelectedClaimId(null);
-    setPage('create');
+    window.location.hash = '#create';
   };
 
   const handleDeleteClaim = (id: number) => {
@@ -103,7 +135,7 @@ export default function App() {
     saveClaims(updated);
     setClaims(updated);
     triggerToast("Expense claim deleted successfully.");
-    setPage('list');
+    window.location.hash = '#list';
   };
 
   // Create or Update Claim Form submissions
@@ -241,8 +273,7 @@ export default function App() {
 
     saveClaims(updatedClaims);
     setClaims(updatedClaims);
-    setPage('list');
-    setSelectedClaimId(null);
+    window.location.hash = '#list';
   };
 
   // Approver Action Submissions (Transition State Machine)
@@ -408,8 +439,7 @@ export default function App() {
     saveClaims(updatedClaims);
     setClaims(updatedClaims);
     triggerToast(`Logged review action on claim ${claims.find(c => c.id === selectedClaimId)?.expense_number}`);
-    setPage('list');
-    setSelectedClaimId(null);
+    window.location.hash = '#list';
   };
 
   const selectedClaim = claims.find(c => c.id === selectedClaimId);
@@ -421,7 +451,7 @@ export default function App() {
       <HeaderSessionSwitcher
         currentUser={currentUser}
         onUserChange={handleUserChange}
-        onViewPolicy={() => setPage('policy')}
+        onViewPolicy={() => { window.location.hash = '#policy'; }}
       />
 
       {/* Main Content Area */}
@@ -459,14 +489,14 @@ export default function App() {
               onNewClaim={handleNewClaim}
               onEditClaim={handleEditClaim}
               onDeleteClaim={handleDeleteClaim}
-              onViewPolicy={() => setPage('policy')}
+              onViewPolicy={() => { window.location.hash = '#policy'; }}
             />
           )}
 
           {page === 'create' && (
             <ExpenseClaimForm
               currentUser={currentUser}
-              onCancel={() => setPage('list')}
+              onCancel={() => { window.location.hash = '#list'; }}
               onSubmit={handleCreateOrUpdateClaimSubmit}
             />
           )}
@@ -475,7 +505,7 @@ export default function App() {
             <ExpenseClaimForm
               currentUser={currentUser}
               claimToEdit={selectedClaim}
-              onCancel={() => setPage('list')}
+              onCancel={() => { window.location.hash = '#list'; }}
               onSubmit={handleCreateOrUpdateClaimSubmit}
             />
           )}
@@ -484,7 +514,7 @@ export default function App() {
             <ExpenseDetailPage
               claim={selectedClaim}
               currentUser={currentUser}
-              onBack={() => setPage('list')}
+              onBack={() => { window.location.hash = '#list'; }}
               onEdit={handleEditClaim}
               onDelete={handleDeleteClaim}
               onReview={handleReviewClaim}
@@ -495,14 +525,14 @@ export default function App() {
             <ExpenseReviewPage
               claim={selectedClaim}
               currentUser={currentUser}
-              onCancel={() => setPage('list')}
+              onCancel={() => { window.location.hash = '#list'; }}
               onSubmitDecision={handleReviewDecisionSubmit}
             />
           )}
 
           {page === 'policy' && (
             <ExpensePolicyPage
-              onBack={() => setPage('list')}
+              onBack={() => { window.location.hash = '#list'; }}
             />
           )}
         </div>
