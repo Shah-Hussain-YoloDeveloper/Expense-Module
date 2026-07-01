@@ -15,53 +15,126 @@ import ExpenseReviewPage from './components/ExpenseReviewPage';
 import ExpensePolicyPage from './components/ExpensePolicyPage';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, CheckCircle, Info } from 'lucide-react';
+import { Routes, Route, useNavigate, useParams, useLocation, Navigate } from 'react-router-dom';
+
+// DetailPageWrapper component to parse path ID and render ExpenseDetailPage
+function DetailPageWrapper({ 
+  claims, 
+  currentUser, 
+  onDelete 
+}: { 
+  claims: ExpenseClaim[]; 
+  currentUser: UserProfile; 
+  onDelete: (id: number) => void; 
+}) {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const claimId = id ? parseInt(id, 10) : null;
+  const claim = claims.find(c => c.id === claimId);
+
+  if (!claim) {
+    return (
+      <div className="p-8 text-center text-slate-500 font-medium">
+        <p>Expense claim not found.</p>
+        <button onClick={() => navigate('/')} className="mt-4 text-indigo-600 hover:underline font-bold text-xs cursor-pointer">
+          Back to List
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <ExpenseDetailPage
+      claim={claim}
+      currentUser={currentUser}
+      onBack={() => navigate('/')}
+      onEdit={(id) => navigate(`/edit/${id}`)}
+      onDelete={onDelete}
+      onReview={(id) => navigate(`/review/${id}`)}
+    />
+  );
+}
+
+// EditPageWrapper component to parse path ID and render ExpenseClaimForm
+function EditPageWrapper({ 
+  claims, 
+  currentUser, 
+  onSubmit 
+}: { 
+  claims: ExpenseClaim[]; 
+  currentUser: UserProfile; 
+  onSubmit: (formData: Partial<ExpenseClaim>, claimId?: number) => void; 
+}) {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const claimId = id ? parseInt(id, 10) : null;
+  const claim = claims.find(c => c.id === claimId);
+
+  if (!claim) {
+    return (
+      <div className="p-8 text-center text-slate-500 font-medium">
+        <p>Expense claim to edit not found.</p>
+        <button onClick={() => navigate('/')} className="mt-4 text-indigo-600 hover:underline font-bold text-xs cursor-pointer">
+          Back to List
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <ExpenseClaimForm
+      currentUser={currentUser}
+      claimToEdit={claim}
+      onCancel={() => navigate('/')}
+      onSubmit={(formData) => onSubmit(formData, claim.id)}
+    />
+  );
+}
+
+// ReviewPageWrapper component to parse path ID and render ExpenseReviewPage
+function ReviewPageWrapper({ 
+  claims, 
+  currentUser, 
+  onSubmitDecision 
+}: { 
+  claims: ExpenseClaim[]; 
+  currentUser: UserProfile; 
+  onSubmitDecision: (claimId: number, payload: any) => void; 
+}) {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const claimId = id ? parseInt(id, 10) : null;
+  const claim = claims.find(c => c.id === claimId);
+
+  if (!claim) {
+    return (
+      <div className="p-8 text-center text-slate-500 font-medium">
+        <p>Expense claim to review not found.</p>
+        <button onClick={() => navigate('/')} className="mt-4 text-indigo-600 hover:underline font-bold text-xs cursor-pointer">
+          Back to List
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <ExpenseReviewPage
+      claim={claim}
+      currentUser={currentUser}
+      onCancel={() => navigate('/')}
+      onSubmitDecision={(payload) => onSubmitDecision(claim.id, payload)}
+    />
+  );
+}
 
 export default function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   // Session states
   const [currentUser, setSessionUser] = useState<UserProfile>(getCurrentUser());
   const [claims, setClaims] = useState<ExpenseClaim[]>(() => getClaims());
   
-  // Navigation states
-  const [page, setPage] = useState<'list' | 'detail' | 'create' | 'edit' | 'review' | 'policy'>('list');
-  const [selectedClaimId, setSelectedClaimId] = useState<number | null>(null);
-
-  // Sync state with URL hash
-  useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash || '#list';
-      if (hash.startsWith('#policy')) {
-        setPage('policy');
-        setSelectedClaimId(null);
-      } else if (hash.startsWith('#create')) {
-        setPage('create');
-        setSelectedClaimId(null);
-      } else if (hash.startsWith('#detail/')) {
-        const id = parseInt(hash.split('/')[1]);
-        setPage('detail');
-        setSelectedClaimId(isNaN(id) ? null : id);
-      } else if (hash.startsWith('#edit/')) {
-        const id = parseInt(hash.split('/')[1]);
-        setPage('edit');
-        setSelectedClaimId(isNaN(id) ? null : id);
-      } else if (hash.startsWith('#review/')) {
-        const id = parseInt(hash.split('/')[1]);
-        setPage('review');
-        setSelectedClaimId(isNaN(id) ? null : id);
-      } else {
-        setPage('list');
-        setSelectedClaimId(null);
-      }
-    };
-
-    // Initialize on mount
-    handleHashChange();
-
-    window.addEventListener('hashchange', handleHashChange);
-    return () => {
-      window.removeEventListener('hashchange', handleHashChange);
-    };
-  }, []);
-
   // Policy modal overlay state
   const [isPolicyOpen, setIsPolicyOpen] = useState(false);
 
@@ -73,16 +146,16 @@ export default function App() {
     setClaims(getClaims());
   }, []);
 
-  // Scroll to top when page/id changes
+  // Scroll to top when page changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
-  }, [page, selectedClaimId]);
+  }, [location.pathname]);
 
   // Handle Switch Session
   const handleUserChange = (user: UserProfile) => {
     setCurrentUser(user);
     setSessionUser(user);
-    window.location.hash = '#list';
+    navigate('/');
     triggerToast(`Switched workspace session to: ${user.name}`);
   };
 
@@ -92,23 +165,6 @@ export default function App() {
     setTimeout(() => {
       setToastMessage(null);
     }, 4500);
-  };
-
-  // Nav actions - modifying hash is the single source of truth
-  const handleSelectClaim = (id: number) => {
-    window.location.hash = `#detail/${id}`;
-  };
-
-  const handleEditClaim = (id: number) => {
-    window.location.hash = `#edit/${id}`;
-  };
-
-  const handleReviewClaim = (id: number) => {
-    window.location.hash = `#review/${id}`;
-  };
-
-  const handleNewClaim = () => {
-    window.location.hash = '#create';
   };
 
   const handleDeleteClaim = (id: number) => {
@@ -135,15 +191,15 @@ export default function App() {
     saveClaims(updated);
     setClaims(updated);
     triggerToast("Expense claim deleted successfully.");
-    window.location.hash = '#list';
+    navigate('/');
   };
 
   // Create or Update Claim Form submissions
-  const handleCreateOrUpdateClaimSubmit = (formData: Partial<ExpenseClaim>) => {
+  const handleCreateOrUpdateClaimSubmit = (formData: Partial<ExpenseClaim>, claimId?: number) => {
     let updatedClaims = [...claims];
     const timestamp = new Date().toISOString();
 
-    if (page === 'create') {
+    if (!claimId) {
       // 1. CREATE MODE
       const newId = Date.now();
       const uniqueNum = `EXP-2026-${String(Math.floor(1000 + Math.random() * 9000))}`;
@@ -192,9 +248,9 @@ export default function App() {
       updatedClaims.push(newClaim);
       triggerToast(`Claim ${newClaim.expense_number} filed successfully!`);
 
-    } else if (page === 'edit' && selectedClaimId) {
+    } else {
       // 2. EDIT MODE (For adjustments or corrections)
-      const existingClaim = claims.find(c => c.id === selectedClaimId);
+      const existingClaim = claims.find(c => c.id === claimId);
       if (!existingClaim) return;
 
       const isOwner = existingClaim.employee.id === currentUser.id;
@@ -211,7 +267,7 @@ export default function App() {
       }
 
       updatedClaims = claims.map(c => {
-        if (c.id === selectedClaimId) {
+        if (c.id === claimId) {
           // Check if previous status was Correction Required
           const wasCorrection = c.status === 'correction_required';
           const nextStatus = wasCorrection ? 'awaiting_manager' : c.status;
@@ -273,18 +329,20 @@ export default function App() {
 
     saveClaims(updatedClaims);
     setClaims(updatedClaims);
-    window.location.hash = '#list';
+    navigate('/');
   };
 
   // Approver Action Submissions (Transition State Machine)
-  const handleReviewDecisionSubmit = (payload: {
-    overallStatus: 'approved' | 'rejected' | 'correction_required' | 'settled';
-    remarks: string;
-    paymentRef?: string;
-    lineDecisions: Array<{ id: number; status: string; remarks: string }>;
-  }) => {
-    if (!selectedClaimId) return;
-    const claim = claims.find(c => c.id === selectedClaimId);
+  const handleReviewDecisionSubmit = (
+    claimId: number,
+    payload: {
+      overallStatus: 'approved' | 'rejected' | 'correction_required' | 'settled';
+      remarks: string;
+      paymentRef?: string;
+      lineDecisions: Array<{ id: number; status: string; remarks: string }>;
+    }
+  ) => {
+    const claim = claims.find(c => c.id === claimId);
     if (!claim) return;
 
     if (claim.current_approver_role !== currentUser.role) {
@@ -295,7 +353,7 @@ export default function App() {
     const timestamp = new Date().toISOString();
 
     const updatedClaims = claims.map(c => {
-      if (c.id === selectedClaimId) {
+      if (c.id === claimId) {
         
         // 1. Update lines decisions inside items
         const updatedItems = c.items.map(item => {
@@ -438,11 +496,9 @@ export default function App() {
 
     saveClaims(updatedClaims);
     setClaims(updatedClaims);
-    triggerToast(`Logged review action on claim ${claims.find(c => c.id === selectedClaimId)?.expense_number}`);
-    window.location.hash = '#list';
+    triggerToast(`Logged review action on claim ${claims.find(c => c.id === claimId)?.expense_number}`);
+    navigate('/');
   };
-
-  const selectedClaim = claims.find(c => c.id === selectedClaimId);
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col antialiased">
@@ -451,7 +507,7 @@ export default function App() {
       <HeaderSessionSwitcher
         currentUser={currentUser}
         onUserChange={handleUserChange}
-        onViewPolicy={() => { window.location.hash = '#policy'; }}
+        onViewPolicy={() => navigate('/policy')}
       />
 
       {/* Main Content Area */}
@@ -478,63 +534,75 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        {/* Dynamic page routers based on clean conditional component selections */}
+        {/* Proper URL paths driven by React Router DOM */}
         <div className="relative">
-          {page === 'list' && (
-            <ExpensesListPage
-              claims={claims}
-              currentUser={currentUser}
-              onSelectClaim={handleSelectClaim}
-              onReviewClaim={handleReviewClaim}
-              onNewClaim={handleNewClaim}
-              onEditClaim={handleEditClaim}
-              onDeleteClaim={handleDeleteClaim}
-              onViewPolicy={() => { window.location.hash = '#policy'; }}
+          <Routes>
+            <Route 
+              path="/" 
+              element={
+                <ExpensesListPage
+                  claims={claims}
+                  currentUser={currentUser}
+                  onSelectClaim={(id) => navigate(`/detail/${id}`)}
+                  onReviewClaim={(id) => navigate(`/review/${id}`)}
+                  onNewClaim={() => navigate('/create')}
+                  onEditClaim={(id) => navigate(`/edit/${id}`)}
+                  onDeleteClaim={handleDeleteClaim}
+                  onViewPolicy={() => navigate('/policy')}
+                />
+              } 
             />
-          )}
-
-          {page === 'create' && (
-            <ExpenseClaimForm
-              currentUser={currentUser}
-              onCancel={() => { window.location.hash = '#list'; }}
-              onSubmit={handleCreateOrUpdateClaimSubmit}
+            <Route 
+              path="/policy" 
+              element={
+                <ExpensePolicyPage
+                  onBack={() => navigate('/')}
+                />
+              } 
             />
-          )}
-
-          {page === 'edit' && selectedClaim && (
-            <ExpenseClaimForm
-              currentUser={currentUser}
-              claimToEdit={selectedClaim}
-              onCancel={() => { window.location.hash = '#list'; }}
-              onSubmit={handleCreateOrUpdateClaimSubmit}
+            <Route 
+              path="/create" 
+              element={
+                <ExpenseClaimForm
+                  currentUser={currentUser}
+                  onCancel={() => navigate('/')}
+                  onSubmit={(formData) => handleCreateOrUpdateClaimSubmit(formData)}
+                />
+              } 
             />
-          )}
-
-          {page === 'detail' && selectedClaim && (
-            <ExpenseDetailPage
-              claim={selectedClaim}
-              currentUser={currentUser}
-              onBack={() => { window.location.hash = '#list'; }}
-              onEdit={handleEditClaim}
-              onDelete={handleDeleteClaim}
-              onReview={handleReviewClaim}
+            <Route 
+              path="/edit/:id" 
+              element={
+                <EditPageWrapper
+                  claims={claims}
+                  currentUser={currentUser}
+                  onSubmit={handleCreateOrUpdateClaimSubmit}
+                />
+              } 
             />
-          )}
-
-          {page === 'review' && selectedClaim && (
-            <ExpenseReviewPage
-              claim={selectedClaim}
-              currentUser={currentUser}
-              onCancel={() => { window.location.hash = '#list'; }}
-              onSubmitDecision={handleReviewDecisionSubmit}
+            <Route 
+              path="/detail/:id" 
+              element={
+                <DetailPageWrapper
+                  claims={claims}
+                  currentUser={currentUser}
+                  onDelete={handleDeleteClaim}
+                />
+              } 
             />
-          )}
-
-          {page === 'policy' && (
-            <ExpensePolicyPage
-              onBack={() => { window.location.hash = '#list'; }}
+            <Route 
+              path="/review/:id" 
+              element={
+                <ReviewPageWrapper
+                  claims={claims}
+                  currentUser={currentUser}
+                  onSubmitDecision={handleReviewDecisionSubmit}
+                />
+              } 
             />
-          )}
+            {/* Catch-all fallback redirecting to dashboard */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </div>
 
       </main>
