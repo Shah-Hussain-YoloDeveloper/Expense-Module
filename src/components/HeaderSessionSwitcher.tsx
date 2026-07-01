@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { MOCK_USERS } from '../data';
 import { UserProfile } from '../types';
 import { Shield, ChevronDown, User, CheckCircle2, UserCheck, CreditCard, HeartHandshake } from 'lucide-react';
@@ -21,6 +21,21 @@ export default function HeaderSessionSwitcher({
   onViewPolicy
 }: HeaderSessionSwitcherProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
 
   // Get matching icon for role
   const getRoleIcon = (role: string, isSelected = false) => {
@@ -69,7 +84,7 @@ export default function HeaderSessionSwitcher({
             Expense Policy
           </button>
 
-          <div className="relative">
+          <div className="relative" ref={containerRef}>
             <button
               onClick={() => setIsOpen(!isOpen)}
               className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
@@ -90,9 +105,6 @@ export default function HeaderSessionSwitcher({
             <AnimatePresence>
               {isOpen && (
                 <>
-                  {/* Backdrop */}
-                  <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-                  
                   {/* Dropdown Card */}
                   <motion.div
                     initial={{ opacity: 0, y: 8, scale: 0.95 }}

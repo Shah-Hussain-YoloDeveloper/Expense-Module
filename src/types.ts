@@ -51,7 +51,7 @@ export interface ExpenseItem {
   description: string;
   attachments: Attachment[];
   // Statuses for individual desks
-  desk_manager_status: 'approved' | 'rejected' | null;
+  desk_manager_status: 'approved' | 'rejected' | 'correction_required' | null;
   desk_manager_remarks: string | null;
   desk_finance_status: 'approved' | 'rejected' | 'correction_required' | null;
   desk_finance_remarks: string | null;

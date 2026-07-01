@@ -12,6 +12,7 @@ import ExpensesListPage from './components/ExpensesListPage';
 import ExpenseClaimForm from './components/ExpenseClaimForm';
 import ExpenseDetailPage from './components/ExpenseDetailPage';
 import ExpenseReviewPage from './components/ExpenseReviewPage';
+import ExpensePolicyPage from './components/ExpensePolicyPage';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, CheckCircle, Info } from 'lucide-react';
 
@@ -21,7 +22,7 @@ export default function App() {
   const [claims, setClaims] = useState<ExpenseClaim[]>([]);
   
   // Navigation states
-  const [page, setPage] = useState<'list' | 'detail' | 'create' | 'edit' | 'review'>('list');
+  const [page, setPage] = useState<'list' | 'detail' | 'create' | 'edit' | 'review' | 'policy'>('list');
   const [selectedClaimId, setSelectedClaimId] = useState<number | null>(null);
 
   // Policy modal overlay state
@@ -321,6 +322,10 @@ export default function App() {
             nextStatus = 'pending';
             nextLabel = 'Awaiting Finance Review';
             nextApproverRole = 'finance_desk';
+          } else if (choice === 'correction_required') {
+            nextStatus = 'correction_required';
+            nextLabel = 'Correction Required';
+            nextApproverRole = 'employee';
           } else {
             nextStatus = 'rejected_by_manager';
             nextLabel = 'Rejected by Manager';
@@ -416,7 +421,7 @@ export default function App() {
       <HeaderSessionSwitcher
         currentUser={currentUser}
         onUserChange={handleUserChange}
-        onViewPolicy={() => setIsPolicyOpen(true)}
+        onViewPolicy={() => setPage('policy')}
       />
 
       {/* Main Content Area */}
@@ -454,7 +459,7 @@ export default function App() {
               onNewClaim={handleNewClaim}
               onEditClaim={handleEditClaim}
               onDeleteClaim={handleDeleteClaim}
-              onViewPolicy={() => setIsPolicyOpen(true)}
+              onViewPolicy={() => setPage('policy')}
             />
           )}
 
@@ -492,6 +497,12 @@ export default function App() {
               currentUser={currentUser}
               onCancel={() => setPage('list')}
               onSubmitDecision={handleReviewDecisionSubmit}
+            />
+          )}
+
+          {page === 'policy' && (
+            <ExpensePolicyPage
+              onBack={() => setPage('list')}
             />
           )}
         </div>

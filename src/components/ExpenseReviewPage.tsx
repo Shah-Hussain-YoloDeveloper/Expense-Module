@@ -112,6 +112,21 @@ export default function ExpenseReviewPage({
   };
 
   // Format currency
+  const getReviewStatusBadge = (status: string | null) => {
+    if (!status) return <span className="text-slate-400 font-normal">-</span>;
+    let style = 'bg-rose-50 text-rose-700 border border-rose-200';
+    if (status === 'approved' || status === 'settled') {
+      style = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+    } else if (status === 'correction_required') {
+      style = 'bg-amber-50 text-amber-700 border border-amber-200';
+    }
+    return (
+      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide whitespace-nowrap ${style}`}>
+        {status.replace(/_/g, ' ')}
+      </span>
+    );
+  };
+
   const formatINR = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -364,36 +379,18 @@ export default function ExpenseReviewPage({
                     </td>
 
                     {/* Manager Status */}
-                    <td className="px-5 py-4 whitespace-nowrap text-xs font-bold">
-                      {item.desk_manager_status ? (
-                        <span className={`px-2 py-0.5 rounded ${
-                          item.desk_manager_status === 'approved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700'
-                        }`}>
-                          {item.desk_manager_status}
-                        </span>
-                      ) : <span className="text-slate-400 font-normal">-</span>}
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      {getReviewStatusBadge(item.desk_manager_status)}
                     </td>
 
                     {/* Finance Status */}
-                    <td className="px-5 py-4 whitespace-nowrap text-xs font-bold">
-                      {item.desk_finance_status ? (
-                        <span className={`px-2 py-0.5 rounded ${
-                          item.desk_finance_status === 'approved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700'
-                        }`}>
-                          {item.desk_finance_status}
-                        </span>
-                      ) : <span className="text-slate-400 font-normal">-</span>}
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      {getReviewStatusBadge(item.desk_finance_status)}
                     </td>
 
                     {/* HR Status */}
-                    <td className="px-5 py-4 whitespace-nowrap text-xs font-bold">
-                      {item.desk_hr_status ? (
-                        <span className={`px-2 py-0.5 rounded ${
-                          item.desk_hr_status === 'approved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700'
-                        }`}>
-                          {item.desk_hr_status}
-                        </span>
-                      ) : <span className="text-slate-400 font-normal">-</span>}
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      {getReviewStatusBadge(item.desk_hr_status)}
                     </td>
 
                     {/* Interactive Selection (STicky Right) */}
@@ -413,6 +410,7 @@ export default function ExpenseReviewPage({
                               <>
                                 <option value="approved">Approve Line</option>
                                 <option value="rejected">Reject Line</option>
+                                <option value="correction_required">Request Correction</option>
                               </>
                             )}
 
